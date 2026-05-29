@@ -1,4 +1,4 @@
-from agent.agent import CodingAgent
+from examples.coding_agent.agent import CodingAgent
 
 
 def main():
