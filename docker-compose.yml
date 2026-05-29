@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  # Webstone API server
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+    env_file:
+      - .env
+    environment:
+      - WEBSTONE_ENV=development
+      - WEBSTONE_QUEUE_BACKEND=redis
+      - WEBSTONE_REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: uvicorn webstone.services.api.app:app --host 0.0.0.0 --port 8000 --reload
+
+  # Redis — queue backend and pub/sub for events
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # OpenTelemetry Collector (optional observability stack)
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    ports:
+      - "4317:4317"   # gRPC
+      - "4318:4318"   # HTTP
+      - "8888:8888"   # Prometheus metrics
+    volumes:
+      - ./docker/otel-collector.yaml:/etc/otel-collector.yaml
+    command: ["--config=/etc/otel-collector.yaml"]
+    profiles:
+      - observability
+
+  # Jaeger — trace visualization (optional)
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"  # UI
+      - "14250:14250"  # gRPC
+    profiles:
+      - observability
+
+volumes:
+  redis-data:
