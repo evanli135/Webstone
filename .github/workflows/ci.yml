@@ -112,7 +112,7 @@ jobs:
           ANTHROPIC_API_KEY: "test-key-not-used-in-unit-tests"
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           file: coverage.xml
           fail_ci_if_error: false
