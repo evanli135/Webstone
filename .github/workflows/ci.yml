@@ -107,7 +107,7 @@ jobs:
         run: uv sync --all-extras
 
       - name: Run unit tests
-        run: uv run pytest tests/unit -v --cov=src/Webstone --cov-report=xml
+        run: uv run pytest tests/unit -v --cov=src/orchestration --cov-report=xml
         env:
           ANTHROPIC_API_KEY: "test-key-not-used-in-unit-tests"
 
@@ -138,4 +138,4 @@ jobs:
 
       - name: Verify package
         run: |
-          uv run python -c "import Webstone; print('Import OK')"
+          uv run python -c "import orchestration; print('Import OK')"
