@@ -1,44 +1,42 @@
 # Webstone
 
-> A production-grade agentic research runtime for large-scale multi-agent orchestration, recursive planning trees, and distributed execution.
+> An agentic research assistant that fetches, stores, and reasons over academic papers.
 
 [![CI](https://github.com/evanli135/Webstone/actions/workflows/ci.yml/badge.svg)](https://github.com/evanli135/Webstone/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 ---
 
 ## What is Webstone?
 
-Webstone is an open-source agentic research runtime designed for:
+Webstone is a research tool that aggregates academic papers from multiple sources (arXiv, Semantic Scholar, Crossref), persists them to a Postgres database, and uses LangChain-powered agents to plan, retrieve, and evaluate research queries.
 
-- **Multi-agent orchestration** — Coordinate hundreds of specialized agents (planners, readers, evaluators) over a shared graph.
-- **Recursive search trees** — Branch, explore, prune, and merge reasoning paths at scale.
-- **Graph-based memory** — Persist and query structured knowledge across agent runs.
-- **High-concurrency execution** — Async-first runtime designed for thousands of parallel branches.
-- **Streaming observability** — Real-time event streaming, tracing, and metrics via OpenTelemetry.
-- **Durable execution** — Checkpoint and resume long-running research workflows.
+The system is split into two layers:
+
+- **Transport** (Go) — high-concurrency paper fetching from external APIs, fanning out requests in parallel.
+- **Cognitive** (Python) — LangChain agents that plan research, retrieve papers, and evaluate results, backed by SQLModel + Postgres.
 
 ---
 
-## Architecture Overview
-
-Webstone separates cognition from execution:
+## Architecture
 
 ```
-┌──────────────────────────────────────────────────┐
-│                  Cognitive Layer                  │
-│  Agents · Planners · Evaluators · Memory · Graphs │
-└──────────────────────┬───────────────────────────┘
-                       │  typed state / events
-┌──────────────────────▼───────────────────────────┐
-│                  Execution Layer                  │
-│  Scheduler · Workers · Queues · Retries · Checks  │
-└──────────────────────────────────────────────────┘
+┌──────────────────────────────────┐
+│         Cognitive Layer (Python) │
+│  LangChain agents · Pydantic     │
+│  SQLModel models · Postgres      │
+└────────────────┬─────────────────┘
+                 │  HTTP (paper fetch requests)
+┌────────────────▼─────────────────┐
+│         Transport Layer (Go)     │
+│  Concurrent source fetching      │
+│  arXiv · Semantic Scholar        │
+│  Crossref                        │
+└──────────────────────────────────┘
 ```
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full design document.
+The Go transport service exposes a single `/fetch` endpoint that fans out to all requested paper sources concurrently and returns a unified list of results. Python agents call this service and persist results to Postgres via SQLModel.
 
 ---
 
@@ -46,21 +44,28 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full design document.
 
 ```
 webstone/
-├── src/webstone/
-│   ├── core/          # State schemas, protocols, events, errors
-│   ├── agents/        # Planner, Reader, Evaluator, Router agents
-│   ├── graphs/        # LangGraph builders, nodes, edges, workflows
-│   ├── runtime/       # Scheduler, workers, queues, retries, checkpoints
-│   ├── memory/        # Graph store, vector store, retrieval abstractions
-│   ├── services/      # FastAPI, WebSocket, telemetry service
-│   ├── observability/ # Tracing, metrics, event bus
-│   └── config/        # Settings, environment, feature flags
+├── src/
+│   ├── transport/               # Go transport service
+│   │   ├── cmd/main.go          # Entry point
+│   │   └── internal/
+│   │       ├── server/          # HTTP handlers, routing
+│   │       ├── sources/         # arXiv, Semantic Scholar, Crossref clients
+│   │       └── models/          # Shared request/response types
+│   └── webstone/                # Python cognitive layer (in progress)
 ├── tests/
-│   ├── unit/
-│   └── integration/
 ├── docker/
 └── .github/workflows/
 ```
+
+---
+
+## Tech Stack
+
+| Layer | Language | Key Libraries |
+|-------|----------|---------------|
+| Cognitive | Python 3.12 | LangChain, Pydantic v2, SQLModel |
+| Transport | Go 1.24 | stdlib `net/http` |
+| Persistence | — | PostgreSQL |
 
 ---
 
@@ -68,44 +73,37 @@ webstone/
 
 ### Prerequisites
 
-- Python 3.12+
-- [uv](https://github.com/astral-sh/uv) package manager
-- Docker (optional, for local services)
+- Python 3.12+, [uv](https://github.com/astral-sh/uv)
+- Go 1.24+
+- PostgreSQL
 
-### Setup
+### Python setup
 
 ```bash
-# Clone the repository
 git clone https://github.com/evanli135/Webstone.git
 cd Webstone
 
-# Install uv if you haven't
 pip install uv
-
-# Create virtual environment and install dependencies
 make install
 
-# Copy environment config
 cp .env.example .env
-# Edit .env and set your ANTHROPIC_API_KEY
-
-# Run pre-commit hooks
-make pre-commit-install
-
-# Verify setup
-make check
+# Set DATABASE_URL and ANTHROPIC_API_KEY in .env
 ```
 
-### Run the API server
+### Run the Go transport service
 
 ```bash
-make serve
+cd src/transport
+go run ./cmd
+# Listening on :8080
 ```
 
-### Run the example research graph
+### Fetch papers
 
 ```bash
-uv run python -m webstone.graphs.workflows.research
+curl -X POST http://localhost:8080/fetch \
+  -H "Content-Type: application/json" \
+  -d '{"query": "transformer attention mechanisms", "limit": 10}'
 ```
 
 ---
@@ -113,48 +111,30 @@ uv run python -m webstone.graphs.workflows.research
 ## Development
 
 ```bash
-make lint          # Run Ruff linter
-make typecheck     # Run Pyright type checker
-make test          # Run pytest suite
-make test-cov      # Run tests with coverage
-make check         # lint + typecheck + test
-make fmt           # Auto-format with Ruff
+make lint        # Ruff linter
+make typecheck   # Pyright
+make test        # pytest
+make fmt         # auto-format
 ```
 
-See the [Makefile](./Makefile) for all available commands.
+For the Go service:
+```bash
+cd src/transport
+go build ./...
+go vet ./...
+```
 
 ---
 
 ## Roadmap
 
-See [ROADMAP.md](./ROADMAP.md) for the detailed roadmap.
-
-High-level milestones:
-
 | Phase | Focus |
 |-------|-------|
-| v0.1 | Core scaffolding, graph execution, basic agents |
-| v0.2 | Graph memory, retrieval, evaluator feedback loops |
-| v0.3 | Distributed runtime, checkpoint persistence |
-| v0.4 | Go execution sidecar integration |
-| v1.0 | Production-hardened runtime |
-
----
-
-## Design Philosophy
-
-1. **Separation of concerns** — Cognitive logic and execution mechanics never bleed into each other.
-2. **Typed interfaces** — All agent contracts, state schemas, and events are strongly typed via Pydantic v2.
-3. **Async-first** — The entire execution layer is designed for high-concurrency async workflows.
-4. **Composable** — Small, focused modules that compose cleanly; no monolithic god classes.
-5. **Observable by default** — Every meaningful operation emits structured events and spans.
-6. **Escape hatches** — Protocol-based interfaces everywhere to avoid framework lock-in.
-
----
-
-## Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
+| v0.1 | Go transport service, paper fetching from all sources |
+| v0.2 | Python agents (planner, reader, evaluator) wired up |
+| v0.3 | Postgres persistence via SQLModel |
+| v0.4 | End-to-end research query pipeline |
+| v1.0 | Production deployment |
 
 ---
 
