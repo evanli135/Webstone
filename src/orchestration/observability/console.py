@@ -13,7 +13,10 @@ class ConsoleTelemetry(BaseTelemetry):
 
     def record_fetch(self, event: FetchEvent) -> None:
         status = "OK" if event.success else "FAIL"
-        print(f"[{status}] {event.source} | {event.query!r} | {event.result_count} results | {event.duration_ms:.0f}ms")
+        print(
+            f"[{status}] {event.source} | {event.query!r} | "
+            f"{event.result_count} results | {event.duration_ms:.0f}ms"
+        )
 
     def record_agent(self, event: AgentEvent) -> None:
         status = "OK" if event.success else "FAIL"
@@ -24,7 +27,10 @@ class ConsoleTelemetry(BaseTelemetry):
 
     def record_tool(self, event: ToolEvent) -> None:
         status = "OK" if event.success else "FAIL"
-        print(f"[TOOL:{status}] {event.agent_id} → {event.tool}({event.args}) | {event.duration_ms:.0f}ms")
+        print(
+            f"[TOOL:{status}] {event.agent_id} → "
+            f"{event.tool}({event.args}) | {event.duration_ms:.0f}ms"
+        )
 
     def record_agent_action(self, event: AgentActionEvent) -> None:
         result = f" → {event.result}" if event.result else ""

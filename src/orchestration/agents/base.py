@@ -1,30 +1,36 @@
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Optional
-from context import BaseContext
-from enum import Enum
+from enum import Enum, auto
+from typing import Any
+
+from orchestration.context.base import BaseContext
+
 
 class ObservableType(Enum):
     """
     Enum representing different types of observations.
     """
-    PROMPT
-    COMMAND
-    UPDATE
-    COMPLETION
+
+    PROMPT = auto()
+    COMMAND = auto()
+    UPDATE = auto()
+    COMPLETION = auto()
+
 
 class Observable:
     """
     Class representing an observable entity.
     """
 
-    def __init__(self, observable_type: ObservableType, data: Any):
+    def __init__(self, observable_type: ObservableType, data: Any) -> None:
         if not self._stringable(data):
             raise ValueError("Data must be stringable.")
 
         self.observable_type = observable_type
         self.data = data
 
+    @staticmethod
     def _stringable(data: Any) -> bool:
         """
         Check if the data can be converted to a string.
@@ -35,7 +41,7 @@ class Observable:
         try:
             str(data)
             return True
-        except:
+        except Exception:
             return False
 
 
@@ -44,9 +50,10 @@ class BaseAgent(ABC):
     Base class for all agents.
     """
 
-    def __init__(self, name: str, context: BaseContext):
+    def __init__(self, name: str, context: BaseContext) -> None:
         self.name = name
         self.context = context
+        raise NotImplementedError
 
     @abstractmethod
     def act(self, observation: Any) -> Any:
@@ -59,17 +66,18 @@ class BaseAgent(ABC):
         Returns:
             Any: The action to be taken by the agent.
         """
-        pass
+        raise NotImplementedError
 
-    def fork(self, name: Optional[str] = None, context: Optional[BaseContext] = None) -> BaseAgent:
+    def fork(self, name: str | None = None, context: BaseContext | None = None) -> BaseAgent:
         """
         Create a new instance of the agent with the same configuration.
 
         Returns:
-            BaseAgent: A new instance of the agent, with the exact same context and configuration as the original agent.
+            BaseAgent: A new instance of the agent, with the exact same context
+            and configuration as the original agent.
         """
         if name is None:
             name = self.name
         if context is None:
             context = self.context
-        return self.__class__(name, context)
+        raise NotImplementedError

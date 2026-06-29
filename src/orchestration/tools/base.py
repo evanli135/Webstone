@@ -1,14 +1,12 @@
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Optional
-from context import BaseContext
-from enum import Enum
+from typing import Any
 
 
 class BaseTool(ABC):
-
     @abstractmethod
-    def execute(self, arg: dict):
+    def execute(self, arg: dict) -> Any:
         """
         Execute the tool with the given argument.
 
@@ -18,7 +16,6 @@ class BaseTool(ABC):
         Returns:
             Any: The result of the tool execution.
         """
-        pass
 
     @abstractmethod
     def schema(self) -> dict:
@@ -28,4 +25,3 @@ class BaseTool(ABC):
         Returns:
             dict: The schema of the tool.
         """
-        return {}

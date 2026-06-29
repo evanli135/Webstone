@@ -3,7 +3,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 
 @dataclass
@@ -15,12 +14,12 @@ class ErrorEvent:
 
 @dataclass
 class FetchEvent:
-    source: str          # "semantic_scholar" | "arxiv"
+    source: str  # "semantic_scholar" | "arxiv"
     query: str
     duration_ms: float
     result_count: int
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
 
@@ -30,32 +29,31 @@ class AgentEvent:
     action: str
     duration_ms: float
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
 
 @dataclass
 class ToolEvent:
-    agent_id: str        # who invoked it
-    tool: str            # e.g. "fetch_arxiv", "search_memory"
+    agent_id: str  # who invoked it
+    tool: str  # e.g. "fetch_arxiv", "search_memory"
     args: dict
     duration_ms: float
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
 
 @dataclass
 class AgentActionEvent:
-    source_agent_id: str          # who triggered the action
-    target_agent_id: str          # who received it (same as source for self-actions)
-    action: str                   # e.g. "fork", "evaluate", "interrupt", "delegate"
-    result: Optional[str] = None  # e.g. spawned agent id for a fork
+    source_agent_id: str  # who triggered the action
+    target_agent_id: str  # who received it (same as source for self-actions)
+    action: str  # e.g. "fork", "evaluate", "interrupt", "delegate"
+    result: str | None = None  # e.g. spawned agent id for a fork
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
 
 class BaseTelemetry(ABC):
-
     @abstractmethod
     def record_agent(self, event: AgentEvent) -> None:
         """Record a general agent lifecycle event."""

@@ -11,23 +11,25 @@ Deps: pip install textual
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
+from typing import ClassVar
 
 from textual.app import App, ComposeResult
+from textual.binding import BindingType
 from textual.reactive import reactive
 from textual.timer import Timer
 from textual.widgets import DataTable, Footer, Header, Label, Log, Static
-
 
 # ---------------------------------------------------------------------------
 # Domain types
 # ---------------------------------------------------------------------------
 
-class AgentStatus(str, Enum):
-    OK       = "ok"
+
+class AgentStatus(StrEnum):
+    OK = "ok"
     DEGRADED = "degraded"
-    DOWN     = "down"
-    UNKNOWN  = "unknown"
+    DOWN = "down"
+    UNKNOWN = "unknown"
 
 
 @dataclass
@@ -43,10 +45,10 @@ class AgentInfo:
 
 @dataclass
 class EventEntry:
-    timestamp: str        # pre-formatted HH:MM:SS
-    source: str           # agent_id that originated the event
-    kind: str             # "tool" | "action" | "fork" | "error"
-    description: str      # human-readable one-liner
+    timestamp: str  # pre-formatted HH:MM:SS
+    source: str  # agent_id that originated the event
+    kind: str  # "tool" | "action" | "fork" | "error"
+    description: str  # human-readable one-liner
 
 
 @dataclass
@@ -56,25 +58,22 @@ class SystemSnapshot:
     db_healthy: bool = True
 
 
-from orchestration.mocks.observability import MOCK_EVENTS, MOCK_SNAPSHOT
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 _STATUS_STYLE: dict[AgentStatus, str] = {
-    AgentStatus.OK:       "bold green",
+    AgentStatus.OK: "bold green",
     AgentStatus.DEGRADED: "bold yellow",
-    AgentStatus.DOWN:     "bold red",
-    AgentStatus.UNKNOWN:  "dim",
+    AgentStatus.DOWN: "bold red",
+    AgentStatus.UNKNOWN: "dim",
 }
 
 _KIND_PREFIX: dict[str, str] = {
-    "tool":   "[blue]TOOL  [/blue]",
+    "tool": "[blue]TOOL  [/blue]",
     "action": "[cyan]ACTION[/cyan]",
-    "fork":   "[magenta]FORK  [/magenta]",
-    "error":  "[red]ERROR [/red]",
+    "fork": "[magenta]FORK  [/magenta]",
+    "error": "[red]ERROR [/red]",
 }
 
 _SERVICE_ICONS = {True: "[green]●[/green] healthy", False: "[red]●[/red] unhealthy"}
@@ -102,6 +101,7 @@ def _fmt_event(entry: EventEntry) -> str:
 # Widgets
 # ---------------------------------------------------------------------------
 
+
 class ServiceBar(Static):
     """Single-line strip showing infrastructure service health."""
 
@@ -110,7 +110,7 @@ class ServiceBar(Static):
 
     def update_snapshot(self, snapshot: SystemSnapshot) -> None:
         transport = _SERVICE_ICONS[snapshot.transport_healthy]
-        db        = _SERVICE_ICONS[snapshot.db_healthy]
+        db = _SERVICE_ICONS[snapshot.db_healthy]
         self.query_one("#service-bar-label", Label).update(
             f"  Transport: {transport}    Postgres: {db}"
         )
@@ -160,6 +160,7 @@ class EventLog(Static):
 # App
 # ---------------------------------------------------------------------------
 
+
 class SystemDashboard(App):
     """Webstone system status dashboard."""
 
@@ -188,8 +189,8 @@ class SystemDashboard(App):
     }
     """
 
-    BINDINGS = [
-        ("q", "quit",    "Quit"),
+    BINDINGS: ClassVar[list[BindingType]] = [
+        ("q", "quit", "Quit"),
         ("r", "refresh", "Refresh"),
     ]
 
@@ -212,10 +213,14 @@ class SystemDashboard(App):
 
     def fetch_status(self) -> SystemSnapshot:
         """Return a fresh SystemSnapshot."""
+        from orchestration.mocks.observability import MOCK_SNAPSHOT
+
         return MOCK_SNAPSHOT
 
     def fetch_events(self) -> list[EventEntry]:
         """Return recent EventEntry records, newest last."""
+        from orchestration.mocks.observability import MOCK_EVENTS
+
         return MOCK_EVENTS
 
     # ------------------------------------------------------------------
@@ -224,12 +229,12 @@ class SystemDashboard(App):
 
     def action_refresh(self) -> None:
         snapshot = self.fetch_status()
-        events   = self.fetch_events()
-        self.query_one("#service-bar",        ServiceBar).update_snapshot(snapshot)
+        events = self.fetch_events()
+        self.query_one("#service-bar", ServiceBar).update_snapshot(snapshot)
         self.query_one("#agent-table-widget", AgentTable).update_snapshot(snapshot)
-        self.query_one("#event-log-widget",   EventLog).update_events(events)
+        self.query_one("#event-log-widget", EventLog).update_events(events)
 
-    def action_quit(self) -> None:
+    async def action_quit(self) -> None:
         self.exit()
 
 

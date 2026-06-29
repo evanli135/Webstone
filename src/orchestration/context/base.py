@@ -1,14 +1,17 @@
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any
+
 
 class BaseContext(ABC):
     """
     Base class for context objects.
     """
 
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
+    def __init__(self, **kwargs: Any) -> None:
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     @abstractmethod
     def get(self, key: str) -> Any:
@@ -21,7 +24,6 @@ class BaseContext(ABC):
         Returns:
             Any: The value associated with the key.
         """
-        pass
 
     @abstractmethod
     def set(self, key: str, value: Any) -> None:
@@ -32,4 +34,3 @@ class BaseContext(ABC):
             key (str): The key for which to set the value.
             value (Any): The value to associate with the key.
         """
-        pass
