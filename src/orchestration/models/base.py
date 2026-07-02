@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
 
 
-class ModelType(str, Enum):
+class ModelType(Enum):
     """Enum representing different types of models."""
 
     HAIKU = "claude-haiku-4-5-20251001"
