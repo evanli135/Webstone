@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from typing import Any
-
-from orchestration.observability.base import BaseTelemetry
+from typing import TYPE_CHECKING, Any
 
 from orchestration.context.base import BaseContext
+from orchestration.models.base import AgentConfig, build_chat_model
+from orchestration.observability.base import BaseTelemetry
+
+if TYPE_CHECKING:
+    from langchain_core.language_models import BaseChatModel
 
 
 class ObservableType(Enum):
@@ -47,16 +50,18 @@ class Observable:
             return False
 
 
-class BaseAgent(ABC):
+class Agent(ABC):
     """
-    Base class for all agents.
+    Abstract agent interface.
+
+    This is the contract to program against: annotate parameters and return
+    values as ``Agent`` and depend only on the members declared here. Concrete
+    agents typically extend :class:`BaseAgent`, which supplies the shared
+    implementation, but any object honoring this interface is a valid agent.
     """
 
-    def __init__(self, name: str, context: BaseContext) -> None:
-        self.name = name
-        self.context = context
-        self.base_telemetry = context.telemetry
-        raise NotImplementedError
+    name: str
+    context: BaseContext
 
     @abstractmethod
     def act(self, observation: Any) -> Any:
@@ -69,18 +74,70 @@ class BaseAgent(ABC):
         Returns:
             Any: The action to be taken by the agent.
         """
-        raise NotImplementedError
+
+    @abstractmethod
+    def fork(self, name: str | None = None, context: BaseContext | None = None) -> Agent:
+        """
+        Create a new agent with the same configuration.
+
+        Args:
+            name (str | None): Name for the new agent; defaults to this agent's name.
+            context (BaseContext | None): Context for the new agent; defaults to
+                this agent's context.
+
+        Returns:
+            Agent: A new agent with the given (or inherited) name and context.
+        """
+
+
+class BaseAgent(Agent):
+    """
+    Composable base implementation of :class:`Agent`.
+
+    Concrete agents subclass this and implement :meth:`act`. Construction,
+    telemetry wiring, and :meth:`fork` are provided here so subclasses only
+    supply behavior. ``BaseAgent`` itself is abstract because :meth:`act` is
+    left unimplemented.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        context: BaseContext,
+        *,
+        config: AgentConfig | None = None,
+        model: BaseChatModel | None = None,
+    ) -> None:
+        self.name = name
+        self.context = context
+        self.base_telemetry: BaseTelemetry = context.get("telemetry")
+        self.config: AgentConfig = config or AgentConfig()
+        self._model = model
+
+    @property
+    def model(self) -> BaseChatModel:
+        """
+        The agent's chat model, built lazily from :attr:`config` on first use.
+
+        Inject a model via the constructor to override (e.g. in tests); otherwise
+        it is constructed on demand so agents that never call an LLM stay cheap.
+        """
+        if self._model is None:
+            self._model = build_chat_model(self.config)
+        return self._model
 
     def fork(self, name: str | None = None, context: BaseContext | None = None) -> BaseAgent:
         """
-        Create a new instance of the agent with the same configuration.
+        Create a new instance of the same agent type with the same configuration.
 
         Returns:
-            BaseAgent: A new instance of the agent, with the exact same context
-            and configuration as the original agent.
+            BaseAgent: A new instance of this agent's concrete type, carrying the
+            given (or inherited) name and context, plus this agent's config and
+            model.
         """
-        if name is None:
-            name = self.name
-        if context is None:
-            context = self.context
-        raise NotImplementedError
+        return type(self)(
+            name if name is not None else self.name,
+            context if context is not None else self.context,
+            config=self.config,
+            model=self._model,
+        )

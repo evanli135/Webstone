@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from orchestration.agents.base import BaseAgent, Observable, ObservableType
+from orchestration.agents.base import Agent, BaseAgent, Observable, ObservableType
 from orchestration.context.base import BaseContext
 
 
@@ -47,15 +47,56 @@ def test_observable_rejects_unstringable_data():
         Observable(ObservableType.UPDATE, Unstringable())
 
 
-def test_base_agent_init_is_not_implemented():
-    with pytest.raises(NotImplementedError):
-        DummyAgent("planner", DictContext())
+def test_interface_cannot_be_instantiated():
+    with pytest.raises(TypeError):
+        Agent()  # type: ignore[abstract]
 
 
-def test_fork_is_not_implemented():
-    # __init__ intentionally raises, so build an instance without calling it.
-    agent = DummyAgent.__new__(DummyAgent)
-    agent.name = "planner"
-    agent.context = DictContext()
-    with pytest.raises(NotImplementedError):
-        agent.fork()
+def test_base_agent_cannot_be_instantiated_without_act():
+    # BaseAgent leaves `act` abstract, so it is not directly constructible.
+    with pytest.raises(TypeError):
+        BaseAgent("planner", DictContext())  # type: ignore[abstract]
+
+
+def test_concrete_agent_construction():
+    ctx = DictContext()
+    agent = DummyAgent("planner", ctx)
+    assert agent.name == "planner"
+    assert agent.context is ctx
+    assert agent.act("obs") == "obs"
+
+
+def test_fork_returns_same_type_with_inherited_config():
+    ctx = DictContext()
+    agent = DummyAgent("planner", ctx)
+
+    same = agent.fork()
+    assert isinstance(same, DummyAgent)
+    assert same is not agent
+    assert same.name == "planner"
+    assert same.context is ctx
+
+
+def test_fork_overrides_name_and_context():
+    agent = DummyAgent("planner", DictContext())
+    new_ctx = DictContext()
+
+    forked = agent.fork(name="reader", context=new_ctx)
+    assert forked.name == "reader"
+    assert forked.context is new_ctx
+
+
+def test_injected_model_is_used_without_building():
+    sentinel = object()
+    agent = DummyAgent("planner", DictContext(), model=sentinel)  # type: ignore[arg-type]
+    # `.model` returns the injected instance and never calls build_chat_model.
+    assert agent.model is sentinel
+
+
+def test_fork_propagates_config_and_model():
+    sentinel = object()
+    agent = DummyAgent("planner", DictContext(), model=sentinel)  # type: ignore[arg-type]
+
+    forked = agent.fork()
+    assert forked.model is sentinel
+    assert forked.config is agent.config

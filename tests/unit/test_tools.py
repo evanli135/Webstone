@@ -1,26 +1,31 @@
-"""Tests for orchestration.tools.base.BaseTool."""
+"""Tests for orchestration.tools.base.BaseTool (LangChain-backed)."""
 
 from __future__ import annotations
 
-import pytest
+from pydantic import BaseModel, Field
 
 from orchestration.tools.base import BaseTool
 
 
-class EchoTool(BaseTool):
-    def execute(self, arg: dict):
-        return arg
-
-    def schema(self) -> dict:
-        return {"name": "echo"}
+class AddArgs(BaseModel):
+    a: int = Field(description="left operand")
+    b: int = Field(description="right operand")
 
 
-def test_cannot_instantiate_abstract_base():
-    with pytest.raises(TypeError):
-        BaseTool()  # type: ignore[abstract]
+class AddTool(BaseTool):
+    name: str = "add"
+    description: str = "Add two integers."
+    args_schema: type[BaseModel] = AddArgs
+
+    def _run(self, a: int, b: int, **kwargs) -> int:
+        return a + b
 
 
-def test_concrete_tool_execute_and_schema():
-    tool = EchoTool()
-    assert tool.execute({"x": 1}) == {"x": 1}
-    assert tool.schema() == {"name": "echo"}
+def test_execute_invokes_tool():
+    assert AddTool().execute({"a": 2, "b": 3}) == 5
+
+
+def test_json_schema_derived_from_args():
+    schema = AddTool().json_schema()
+    assert set(schema["properties"]) == {"a", "b"}
+    assert schema["properties"]["a"]["description"] == "left operand"
