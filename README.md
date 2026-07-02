@@ -51,7 +51,9 @@ webstone/
 │   │       ├── server/          # HTTP handlers, routing
 │   │       ├── sources/         # arXiv, Semantic Scholar, Crossref clients
 │   │       └── models/          # Shared request/response types
-│   └── webstone/                # Python cognitive layer (in progress)
+|   |
+│   └── orchestration/           # Python Agentic Service
+|  
 ├── tests/
 ├── docker/
 └── .github/workflows/
