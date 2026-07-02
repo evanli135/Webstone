@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Any
 
+from orchestration.observability.base import BaseTelemetry
+
 from orchestration.context.base import BaseContext
 
 
@@ -53,6 +55,7 @@ class BaseAgent(ABC):
     def __init__(self, name: str, context: BaseContext) -> None:
         self.name = name
         self.context = context
+        self.base_telemetry = context.telemetry
         raise NotImplementedError
 
     @abstractmethod
