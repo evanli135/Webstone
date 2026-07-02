@@ -7,22 +7,21 @@ re-implement provider wiring.
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
-
-from enum import Enum
 
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
 
 
 class ModelType(Enum):
-    """Enum representing different types of models."""
+    """Supported Anthropic chat models, mapped to their API model ids."""
 
     HAIKU = "claude-haiku-4-5-20251001"
     SONNET = "claude-sonnet-5"
-    OPUS = "claude-opus-4.8"
+    OPUS = "claude-opus-4-8"
 
 
 class AgentConfig(BaseModel):
@@ -31,7 +30,6 @@ class AgentConfig(BaseModel):
     model_name: ModelType = Field(default=ModelType.SONNET)
     temperature: float = 0.0
     max_tokens: int | None = Field(default=None, ge=1)
-
 
 
 def build_chat_model(config: AgentConfig | None = None) -> BaseChatModel:
@@ -47,7 +45,7 @@ def build_chat_model(config: AgentConfig | None = None) -> BaseChatModel:
 
     config = config or AgentConfig()
     kwargs: dict[str, Any] = {
-        "model": config.model_name,
+        "model": config.model_name.value,
         "temperature": config.temperature,
     }
     if config.max_tokens is not None:
